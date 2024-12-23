@@ -1,1 +1,108 @@
+###Fig3(a) code
+import numpy as np
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+from pathlib import Path # 处理文件路径
+# import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+import math
+from matplotlib import rcParams
+from matplotlib.ticker import FuncFormatter
+
+config = {
+#     "font.family":'Times New Roman',
+    "font.family":'Arial',
+    "mathtext.fontset":'dejavuserif',
+    "font.serif": 'Palatino Linotype',
+    "xtick.direction" : 'out',
+    "font.size" : 10,
+    "ytick.major.width" : 1,
+}
+rcParams.update(config)
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(1, figsize=(1, 1), dpi=500, facecolor='white', edgecolor='none', frameon=True)
+fig.patch.set_alpha(0)
+
+outer_labels = ['A', 'B']
+outer_sizes = [43.18, 100-43.18]
+
+inner_labels = ['A1', 'A2','A3','A4','A5', 'B']
+inner_sizes = [43.18*0.5369, 43.18*0.1954, 43.18*0.1998, 43.18*0.0595, 43.18*0.0084, 100-43.18]
+
+outer_colors = [ "#314a43","#F0F0F0",]
+inner_colors = ["gold", "#006400",'#9ACD32','#98FB98','#00CED1',"#F0F0F0"]
+
+ax.pie(inner_sizes,  radius=1, wedgeprops=dict(width=0.3, edgecolor='w', linewidth=0.3), startangle=90,colors=inner_colors)
+
+ax.pie(outer_sizes,  radius=0.7, wedgeprops=dict(width=0.3, edgecolor='w', linewidth=0.3), startangle=90,colors=outer_colors)
+
+ax.set(aspect="equal")
+
+plt.show()
+###Fig3 code
+##Fig 3b
+import matplotlib.pyplot as plt
+import numpy as np
+
+df = pd.read_excel(r"hotspots.xlsx", sheet_name='Sheet3')
+x=df['soc']
+y=df['habitat loss']
+
+
+# ax.yaxis.tick_right()
+plt.rcParams['xtick.bottom'] = True
+plt.rcParams['xtick.labelbottom'] = True
+# plt.rcParams['xtick.top'] = False
+# plt.rcParams['xtick.labeltop'] = False
+y1=df['crop'].tolist()
+y2=df['forest'].tolist()
+y3=df['grass'].tolist()
+y4=df['shrub'].tolist()
+y5=df['wetland'].tolist()
+# Data
+years = np.arange(35)
+normalized_urban_area =np.array([y1,y2,y3,y4,y5])
+average_annual_growth_rate = df['hillside habitat loss%'].tolist()
+average_annual_growth_km2 = df['hillside habitat loss'].tolist()
+
+# Create figure and first axis
+
+fig, ax1 = plt.subplots(1, figsize=(9, 1.5), dpi=800, facecolor='white', edgecolor='white', frameon=True)
+fig.patch.set_alpha(0)
+# Plot heatmap
+cax = ax1.imshow(normalized_urban_area, aspect='auto', cmap='BrBG', extent=[0, 35, years[0], years[-1]],vmin=0, vmax=100,
+                alpha=0.7)
+# # Set axis labels and ticks
+ax1.set_yticks(np.arange(5, 5))
+
+# # Create secondary y-axis for bar plots
+ax2 = ax1.twinx()
+ax2.set_yscale('log')
+
+# # Create secondary y-axis for bar plots
+ax3 = ax1.twinx()
+ax3.spines['right'].set_color('#a61b29')
+ax3.tick_params(axis='y', colors='#a61b29')
+ax3.spines['right'].set_position(('outward', 30))  # Move the tertiary axis outward
+ax3.spines['right'].set_color('#a61b29')
+ax3.tick_params(axis='y', colors='#a61b29')
+plt.ylim([0,100])
+ax3.set_yticks([0,50,100])
+for i, rate in enumerate(average_annual_growth_rate):
+
+    ax3.vlines(i+0.7, ymin=0, ymax=rate, color='#a61b29',linewidth=3)
+# Overlay average annual growth in km2 as bar plots
+for i, growth in enumerate(average_annual_growth_km2):
+    ax2.bar(i+0.3, growth, color='#dfc243', edgecolor='black', width=0.25,linewidth=0.7, align='center')
+
+
+custom_labels = df['soc'].tolist()
+custom_positions = np.arange(len(custom_labels)) + 0.5
+ax1.set_xticks(custom_positions)
+ax1.set_xticklabels(custom_labels, rotation=90)  # Rotate labels 90 degrees
+
 
