@@ -1,0 +1,194 @@
+# coding: utf-8
+
+import numpy as np
+import pylandstats as pls
+import os
+import matplotlib.pyplot as plt
+import rasterio
+from pathlib import Path  # 处理文件路径
+import pandas as pd
+import rasterio as rio
+from rasterio.plot import show
+import numpy as np
+import matplotlib.pyplot as plt
+from osgeo import gdal
+
+
+def patch_fragment(sdata, center_x, center_y):
+    ori_sdata = sdata.copy()  # 复制原始数据以便后续使用
+    res = np.asarray([30, 30])
+    # 处理 2000 年的数据
+
+    # 定义2000平原和山坡的类别映射 habitat+landform(1 plain 2 hill 3 mountain)+urban(1 urban_2000 2 urban_expand)
+    plain_types = [210, 310, 410, 510, 610, 710, 910, 1010, 212, 312, 412, 512, 612, 712, 912, 1012]
+    hillside_types = [220, 320, 420, 520, 620, 720, 920, 1020, 222, 322, 422, 522, 622, 722, 922, 1031]
+    other_hillside_types = [230, 330, 430, 530, 630, 930, 730, 1030, 232, 332, 432, 532, 632, 732, 932, 1032]
+
+    # 将平原设置为 1
+    for value in plain_types:
+        sdata[sdata == value] = 1
+
+    # 将山坡设置为 2
+    for value in hillside_types:
+        sdata[sdata == value] = 2
+
+    # 将其他山坡设置为 3
+    for value in other_hillside_types:
+        sdata[sdata == value] = 3
+
+    # 处理大于 3 的值
+    sdata[sdata > 3] = 0
+
+    # 计算 2000 年的栖息地碎片指标
+    ls00 = pls.Landscape(sdata, res)
+    custom_subset_class_metrics_df00 = ls00.compute_class_metrics_df(
+        metrics=["edge_density", "patch_density", "largest_patch_index", "number_of_patches", "area_mn"],
+        )
+    re00 = pd.DataFrame(custom_subset_class_metrics_df00)
+    re00.to_csv("D:/B_Globeland30/code/land00/land_metrics_00_" + str(center_x) + '_' + str(center_y) + ".csv", index=True)
+
+    sdata = []
+    # 恢复原始数据
+    sdata = ori_sdata.copy()
+    # 定义2020平原和山坡的类别映射
+    plain_types = [210, 310, 410, 510, 610, 710, 910, 1010]
+    hillside_types = [220, 320, 420, 520, 620, 720, 920, 1020]
+    other_hillside_types = [230, 330, 430, 530, 630, 930, 730, 1030]
+
+    # 将平原设置为 1
+    for value in plain_types:
+        sdata[sdata == value] = 1
+
+    # 将山坡设置为 2
+    for value in hillside_types:
+        sdata[sdata == value] = 2
+
+    # 将其他山坡设置为 3
+    for value in other_hillside_types:
+        sdata[sdata == value] = 3
+
+    # 处理大于 3 的值
+    sdata[sdata > 3] = 0
+
+    # 计算 2020 年的栖息地碎片指标
+    ls20 = pls.Landscape(sdata, res)
+    custom_subset_class_metrics_df20 = ls20.compute_class_metrics_df(
+        metrics=["edge_density", "patch_density", "largest_patch_index", "number_of_patches", "area_mn"])
+    re20 = pd.DataFrame(custom_subset_class_metrics_df20)
+    re20.to_csv("D:/B_Globeland30/code/land20/land_metrics_20_" + str(center_x) + '_' + str(center_y) + ".csv", index=True)
+
+
+def habitat_loss(data1,data2,data3, center_x, center_y):
+    habitat_type=[1,2,3,4,5,6,7,9,10]
+    landform=[1,2,3]
+    urban=[1,2]
+
+    habitat_plain=[]
+    habitat_hill = []
+    habitat_mount = []
+    for value1 in habitat_type:
+            habitat_plain.append(np.sum((data2 == 1) & (data3 == 2) & (data1==value1)))
+            habitat_hill.append(np.sum((data2 == 2) & (data3 == 2) & (data1==value1)))
+            habitat_mount.append(np.sum((data2 == 3) & (data3 == 2) & (data1==value1)))
+    total=[center_x, center_y]+habitat_plain+habitat_hill+habitat_mount
+    habitat_re=[]
+    total=np.asarray(total)
+    # print(total)
+    habitat_re.append(total)
+    pd.DataFrame(total).to_csv(
+        "D:/B_Globeland30/code/habitat/habitat_loss_v2_0103_part5_" + str(center_x) + '_' + str(center_y) + ".csv", index=False)
+
+    # return total
+
+
+def urban_expansion(data1,data2,data3, center_x, center_y):
+    ub_results=[]
+    plain_expa = np.sum((data2 == 1)&(data3==2)&(data1!=8))
+    hill_expa = np.sum((data2 == 2) & (data3 == 2)&(data1!=8))
+    mountain_ex = np.sum((data2 == 3) & (data3 == 2)&(data1!=8))
+    ub_results.append(np.array([center_x, center_y, plain_expa, hill_expa, mountain_ex]))
+    # print(ub_results)
+    pd.DataFrame(ub_results,columns=['center_x,', 'center_y', "Plain ub", "Hill ub", "Mountain ub"]).to_csv(
+        "D:/B_Globeland30/code/urban/urban_expansion_v2_0103_part5_" + str(center_x) + '_' + str(center_y) + ".csv",index=False)
+
+    # print(plain_expa,hill_expa,mountain_ex)
+    # return
+
+
+def process_dataset(dataset_path1,dataset_path2,dataset_path3,blocksize):
+    # 打开数据集
+    dataset1 = gdal.Open(dataset_path1)
+
+    width = dataset1.RasterXSize
+    height = dataset1.RasterYSize
+    # 获取地理变换信息
+    geotransform = dataset1.GetGeoTransform()
+    nodata_value1=dataset1.GetRasterBand(1).GetNoDataValue()
+
+    dataset2 = gdal.Open(dataset_path2)
+    nodata_value2 = dataset2.GetRasterBand(1).GetNoDataValue()
+
+    dataset3 = gdal.Open(dataset_path3)
+    nodata_value3 = dataset3.GetRasterBand(1).GetNoDataValue()
+    # Width
+    # 1317281
+    # Height
+    # 4858
+    # 计算块的实际像元大小
+    total_blocks_x = width // blocksize
+    total_blocks_y = height // blocksize
+
+
+    # 遍历数据集的每个块
+    for i in range(3379*100, 3505*100, blocksize):
+        # habitat_results = []
+        # ub_results = []
+        for j in range(0, width, blocksize):
+            # 计算当前块的大小
+            x_size = min(blocksize, width - j)
+            y_size = min(blocksize, height - i)
+
+            # 读取数据块
+
+            data_block3 = dataset3.ReadAsArray(j, i, x_size, y_size)
+            data_block3[data_block3==nodata_value3]=0
+
+
+
+            if np.max(data_block3) > 1:
+                # 计算聚合块的位置
+                block_x = j // blocksize
+                block_y = i // blocksize
+                data_block1 = dataset1.ReadAsArray(j, i, x_size, y_size)
+                data_block1[data_block1 == nodata_value1] = 0
+                data_block_lc = data_block1 // 10
+
+                data_block2 = dataset2.ReadAsArray(j, i, x_size, y_size)
+                data_block2[data_block2 == nodata_value2] = 0
+
+                data_block = data_block_lc * 100 + data_block2 * 10 + data_block3
+                data_block[data_block < 100] = 0
+                # 计算中心经纬度
+                center_x = geotransform[0] + (j + blocksize / 2) * geotransform[1]
+                center_y = geotransform[3] + (i + blocksize/ 2) * geotransform[5]
+                print(j,i,'------',center_x, center_y)
+                urban_expansion(data_block_lc, data_block2, data_block3, center_x, center_y)
+                # ub_results.append(urban_expansion(data_block_lc,data_block2, data_block3,center_x, center_y))
+                habitat_loss(data_block_lc,data_block2, data_block3, center_x, center_y)
+
+                patch_fragment(data_block, center_x, center_y)
+
+
+                # habitat_results.append(habitat_loss_temp)
+
+
+    # 关闭数据集
+    dataset = None
+    print(f"处理完成，结果已保存")
+
+if __name__ == "__main__":
+
+    dataset_path1 = r"E:\GLC30\GLCV00.tif"
+    dataset_path2 = r"E:\GBLU\GBLU.tif"
+    dataset_path3 = r"E:\GLC30\GLC_urban_expansion.tif"
+    process_dataset(dataset_path1,dataset_path2,dataset_path3, blocksize=100)
