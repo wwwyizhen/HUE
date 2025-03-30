@@ -24,21 +24,22 @@ def patch_fragment(sdata, center_x, center_y):
     hillside_types = [220, 320, 420, 520, 620, 720, 920, 1020, 222, 322, 422, 522, 622, 722, 922, 1031]
     other_hillside_types = [230, 330, 430, 530, 630, 930, 730, 1030, 232, 332, 432, 532, 632, 732, 932, 1032]
 
-    # 将平原设置为 1
+    # plain
     for value in plain_types:
         sdata[sdata == value] = 1
 
-    # 将山坡设置为 2
+    # hill
     for value in hillside_types:
         sdata[sdata == value] = 2
 
-    # 将其他山坡设置为 3
+    # mountain
     for value in other_hillside_types:
         sdata[sdata == value] = 3
 
     # 处理大于 3 的值
     sdata[sdata > 3] = 0
-
+    # hillside
+    sdata[sdata > 1] = 2
     # 计算 2000 年的栖息地碎片指标
     ls00 = pls.Landscape(sdata, res)
     custom_subset_class_metrics_df00 = ls00.compute_class_metrics_df(
@@ -70,6 +71,7 @@ def patch_fragment(sdata, center_x, center_y):
     # 处理大于 3 的值
     sdata[sdata > 3] = 0
 
+    sdata[sdata > 1] = 2
     # 计算 2020 年的栖息地碎片指标
     ls20 = pls.Landscape(sdata, res)
     custom_subset_class_metrics_df20 = ls20.compute_class_metrics_df(
